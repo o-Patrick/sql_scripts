@@ -2,7 +2,7 @@
 EXERCÍCIO 1 
 Crie o banco de dados treino com as tabelas conforme diagrama.
 */
-DROP DATABASE TREINO;
+CREATE DATABASE TREINO;
 GO
 USE TREINO;
 
@@ -105,36 +105,71 @@ EXERCÍCIO 2
 Restaurar o arquivo  treino.bak no banco de dados criado.
 */
 USE MASTER
-RESTORE DATABASE TREINO FROM DISK =N'C:\Users\tickt\Desktop\exercicios_extras\TREINO.BAK'
-WITH REPLACE
-USE TREINO
+RESTORE DATABASE TREINO FROM DISK =N'C:\Users\tickt\OneDrive\OneDrive\1_estudos\udemy\sqlsvr\sql_scripts\exercicios_extras\TREINO.BAK'
+	WITH REPLACE;
+USE TREINO;
 GO
 
 /*
 EXERCÍCIO 3 
 Liste todos os clientes com seus nomes e com suas respectivas cidade e estados
 */
-
+SELECT CLI.NOME_CLIENTE, CID.NOME_CIDADE, CID.UF
+	FROM CLIENTE AS CLI
+	JOIN CIDADE AS CID
+		ON CLI.ID_CIDADE = CID.ID_CIDADE;
   
 /*
 EXERCÍCIO 4 
 Liste o código do produto, descrição do produto e descrição das categorias dos produtos que tenham o valor unitário na 
 faixa de R$ 10,00 a R$ 1500
 */
+SELECT ID_PROD, NOME_PRODUTO, NOME_CATEGORIA, P.PRECO
+	FROM PRODUTOS AS P
+	JOIN CATEGORIA AS C
+		ON P.ID_CATEGORIA = C.ID_CATEGORIA
+	WHERE P.PRECO BETWEEN 10 AND 1500
+	ORDER BY PRECO;
 
 /*
 EXERCÍCIO 5 
 Liste o código do produto, descrição do produto e descrição da categorias dos produtos, e também apresente uma coluna condicional  com o  nome de "faixa de preço" 
 Com os seguintes critérios
-•	preço< 500 : valor da coluna será  igual  "preço abaixo de 500"
-•	preço  >= 500 e <=1000 valor da coluna será igual  "preço entre 500 e 1000"
-•	preço  > 1000 : valor da coluna será igual  "preço acima de 1000".
+•	preço < 500: valor da coluna será  igual "preço abaixo de 500"
+•	preço >= 500 e <= 1000: valor da coluna será igual "preço entre 500 e 1000"
+•	preço > 1000: valor da coluna será igual "preço acima de 1000".
 */
+-- Função que determina a faixa de preço de um produto
+CREATE FUNCTION FAIXA_PRECO(@PRECO INT)
+	RETURNS VARCHAR(22)
+	AS
+		BEGIN
+			DECLARE @MSG VARCHAR(22);
+
+			IF @PRECO < 500
+				SET @MSG = 'Preço abaixo de 500'
+			ELSE IF @PRECO BETWEEN 500 AND 1000
+				SET @MSG = 'Preço entre 500 e 1000'
+			ELSE
+				SET @MSG = 'Preço acima de 1000';
+
+			RETURN @MSG;
+		END;
+
+-- Mostra os registros com coluna de faixa de preço
+SELECT P.ID_PROD, P.NOME_PRODUTO, C.NOME_CATEGORIA,
+	DBO.FAIXA_PRECO(P.PRECO) AS 'FAIXA DE PREÇO'
+	FROM PRODUTOS AS P
+	JOIN CATEGORIA AS C
+		ON P.ID_CATEGORIA = C.ID_CATEGORIA
+	ORDER BY P.PRECO;
+
 
 /*
 EXERCÍCIO  6
 Adicione a coluna faixa_salario na tabela vendedor tipo char(1)
 */
+ALTER TABLE VENDEDORES ADD FAIXA_SALARIO CHAR(1);
 
 /*
 EXERCÍCIO 7 
@@ -146,18 +181,40 @@ Com os seguintes critérios
 
 **VERIFIQUE SE OS VALORES FORAM ATUALIZADOS CORRETAMENTE
 */
+UPDATE VENDEDORES SET FAIXA_SALARIO =
+	CASE
+		WHEN SALARIO < 1000 THEN 'C'
+		WHEN SALARIO >= 1000 AND SALARIO < 2000 THEN 'B'
+		WHEN SALARIO >= 2000 THEN 'A'
+	END;
+
+SELECT SALARIO, FAIXA_SALARIO FROM VENDEDORES ORDER BY SALARIO;
 
 /*
 EXERCÍCIO 8
 Listar em ordem alfabética os vendedores e seus respectivos salários, mais uma coluna, simulando aumento de 12% em seus salários.
 */
-
+SELECT NOME_VENDEDOR, SALARIO, CAST((SALARIO * 1.12) AS DECIMAL(10, 2)) AS 'Aumento 12%' FROM VENDEDORES;
 
 /*EXERCÍCIO 9
-Listar os nome dos vendedores, salário atual , coluna calculada com salario novo + reajuste de 18% sobre o salário atual, calcular  a coluna acréscimo e calcula uma coluna salario novo+ acresc.
+Listar os nomes dos vendedores, salário atual , coluna calculada com salario novo + reajuste de 18% sobre o salário atual, calcular  a coluna acréscimo e calcular uma coluna salario novo+ acresc.
 Critérios
 Se o vendedor for  da faixa “C”, aplicar  R$ 120 de acréscimo , outras faixas de salario acréscimo igual a 0(Zero )
 */
+
+-- TERMINAR
+CREATE PROCEDURE
+	SELECT
+		NOME_VENDEDOR,
+		SALARIO,
+		FAIXA_SALARIO,
+		DBO.SALARIO_NOVO(SALARIO)
+			AS SALARIO_NOVO,
+		DBO.SALARIO_NOVO_ACRESCIMO(DBO.SALARIO_NOVO(SALARIO), FAIXA_SALARIO)
+			AS SALARIO_NOVO_ACRESCIMO
+		FROM VENDEDORES
+		ORDER BY SALARIO;
+-- TERMINAR ACIMA
 
 /*
 EXERCÍCIO 10
