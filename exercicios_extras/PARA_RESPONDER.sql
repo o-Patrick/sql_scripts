@@ -201,73 +201,138 @@ Listar os nomes dos vendedores, salário atual , coluna calculada com salario nov
 Critérios
 Se o vendedor for  da faixa “C”, aplicar  R$ 120 de acréscimo , outras faixas de salario acréscimo igual a 0(Zero )
 */
+-- DECLARAÇÃO DE VARIÁVEIS DE REAJUSTE E ACRÉSCIMO
+DECLARE @PCT_REAJUSTE DECIMAL(3, 2);
+DECLARE @ACRES INT;
+SET @PCT_REAJUSTE = 0.18;
+SET @ACRES = 120;
 
--- TERMINAR
-CREATE PROCEDURE
-	SELECT
-		NOME_VENDEDOR,
-		SALARIO,
-		FAIXA_SALARIO,
-		DBO.SALARIO_NOVO(SALARIO)
-			AS SALARIO_NOVO,
-		DBO.SALARIO_NOVO_ACRESCIMO(DBO.SALARIO_NOVO(SALARIO), FAIXA_SALARIO)
-			AS SALARIO_NOVO_ACRESCIMO
-		FROM VENDEDORES
-		ORDER BY SALARIO;
--- TERMINAR ACIMA
+SELECT
+	NOME_VENDEDOR,
+	SALARIO,
+	FAIXA_SALARIO,
+	(SALARIO * (1 + @PCT_REAJUSTE))
+		AS SALARIO_NOVO,
+	(CASE WHEN FAIXA_SALARIO = 'C' THEN 120 ELSE 0 END)
+		AS ACRESCIMO,
+	(CASE WHEN FAIXA_SALARIO = 'C' THEN (SALARIO * (1 + @PCT_REAJUSTE) + @ACRES) ELSE (SALARIO * (1 + @PCT_REAJUSTE)) END)
+		AS 'SALARIO + ACRESCIMO'
+	FROM VENDEDORES
+	ORDER BY SALARIO;
 
 /*
 EXERCÍCIO 10
 Listar o nome e salários do vendedor com menor salario.
 */
+SELECT TOP 1 NOME_VENDEDOR, SALARIO FROM VENDEDORES ORDER BY SALARIO;
 
 /*
 EXERCÍCIO 11
 Quantos vendedores ganham acima de R$ 2.000,00 de salário fixo?
 */
+SELECT COUNT(ID_VENDEDOR) FROM VENDEDORES WHERE SALARIO >= 2000;
+
 /*
 EXERCÍCIO 12
 Adicione o campo valor_total tipo decimal(10,2) na tabela venda.
 */
+ALTER TABLE VENDAS ADD VALOR_TOTAL DECIMAL(10, 2);
 
 /*
 EXERCÍCIO 13
-Atualize o campo valor_tota da tabela venda, com a soma dos produtos das respectivas vendas.
+Atualize o campo valor_total da tabela venda, com a soma dos produtos das respectivas vendas.
 */
+UPDATE VENDAS SET VENDAS.VALOR_TOTAL =
+	(SELECT SUM(VI.VAL_TOTAL) FROM VENDA_ITENS AS VI
+		WHERE VENDAS.NUM_VENDA = VI.NUM_VENDA);
 
 /*
 EXERCÍCIO 14
-Realize a conferencia do exercício anterior, certifique-se que o valor  total de cada venda e igual ao valor total da soma dos  produtos da venda, listar as vendas em que ocorrer diferença.
+Realize a conferência do exercício anterior, certifique-se que o valor  total de cada venda é igual ao valor total da soma dos  produtos da venda, listar as vendas em que ocorrer diferença.
 */
+-- DESTRINCHANDO VENDAS
+SELECT V.NUM_VENDA, V.VALOR_TOTAL, VI.VAL_TOTAL
+	FROM VENDAS AS V
+	JOIN VENDA_ITENS AS VI
+		ON V.NUM_VENDA = VI.NUM_VENDA;
+
+-- VISÃO GERAL
+SELECT * FROM VENDAS;
+
+-- SELECIONANDO TOTAIS DISCREPANTES
+SELECT V.NUM_VENDA, V.VALOR_TOTAL, SUM(VI.VAL_TOTAL) AS VAL_TOTAL_ITENS
+	FROM VENDAS AS V
+	JOIN VENDA_ITENS AS VI
+		ON V.NUM_VENDA = VI.NUM_VENDA
+	GROUP BY V.NUM_VENDA, V.VALOR_TOTAL
+		HAVING V.VALOR_TOTAL <> SUM(VI.VAL_TOTAL);
 
 /*
 EXERCÍCIO 15
 Listar o número de produtos existentes, valor total , média do valor unitário referente ao mês 07/2018 agrupado por venda.
 */
+SELECT
+	V.NUM_VENDA,
+	COUNT(VI.NUM_SEQ) AS QTD_SKU,
+	SUM(VI.QTDE) AS QTDE,
+	CAST(AVG(VI.VAL_UNIT) AS DECIMAL(10, 2)) AS MEDIA_VAL_UNI,
+	V.VALOR_TOTAL
+	FROM VENDAS AS V
+	JOIN VENDA_ITENS AS VI
+		ON V.NUM_VENDA = VI.NUM_VENDA
+	WHERE MONTH(V.DATA_VENDA) = 7 AND YEAR(V.DATA_VENDA) = 2018
+	GROUP BY V.NUM_VENDA, V.VALOR_TOTAL;
 
 /*
 EXERCÍCIO 16
 Listar o número de vendas, Valor do ticket médio, menor ticket e maior ticket referente ao mês 07/2017.
 */
 
-
+SELECT
+	COUNT(NUM_VENDA) AS NUMERO_VENDAS,
+	CAST(AVG(VALOR_TOTAL) AS DECIMAL(10, 2)) AS TICKET_MEDIO,
+	MIN(VALOR_TOTAL) AS MENOR_TICKET,
+	CAST(MAX(VALOR_TOTAL) AS DECIMAL(10, 2)) AS MAIOR_TICKET
+	FROM VENDAS
+	WHERE MONTH(DATA_VENDA) = 7 AND YEAR(DATA_VENDA) = 2017;
 
 /*
 EXERCÍCIO 17
 Atualize o status das notas abaixo de normal(N) para cancelada (C)
 --15,34,80,104,130,159,180,240,350,420,422,450,480,510,530,560,600,640,670,714
-
 */
+UPDATE VENDAS SET STATUS = 'C'
+	WHERE NUM_VENDA IN (15, 34, 80, 104, 130, 159, 180, 240, 350, 420, 422, 450, 480, 510, 530, 560, 600, 640, 670, 714);
+
+-- Conferindo
+SELECT NUM_VENDA, STATUS FROM VENDAS WHERE STATUS = 'C';
 
 /*
 EXERCÍCIO 18
 Quais clientes realizaram mais de 70 compras?
 */
+SELECT C.NOME_CLIENTE, COUNT(V.NUM_VENDA) AS QTD_VENDAS
+	FROM VENDAS AS V
+	JOIN CLIENTE AS C
+		ON V.ID_CLIENTE = C.ID_CLIENTE
+	WHERE V.STATUS = 'N'
+	GROUP BY C.NOME_CLIENTE HAVING COUNT(V.NUM_VENDA) > 70
+	ORDER BY 2 DESC;
 
 /*
 EXERCÍCIO 19
 Listar os produtos que estão incluídos em vendas que a quantidade total de produtos seja superior a 100 unidades.
 */
+-- TERMINAR
+SELECT
+	P.NOME_PRODUTO,
+	COUNT(VI.ID_PROD) AS QTD_PRODUTOS
+	FROM PRODUTOS AS P
+	JOIN VENDA_ITENS AS VI
+		ON P.ID_PROD = VI.ID_PROD
+	WHERE 
+	GROUP BY P.NOME_PRODUTO;
+-- TERMINAR
 
 /*
 EXERCÍCIO 20
@@ -306,5 +371,5 @@ Lista o cliente e a data da última compra de cada cliente.
 
 /*
 EXERCÍCIO 27
-Lista o a data da última venda de cada produto.
+Lista a data da última venda de cada produto.
 */
